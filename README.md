@@ -81,6 +81,33 @@ msiexec /i ElementsAgentOfflineInstaller.msi /qn VOUCHER=<キー> PROFILE_ID=<�
 1. エラーの文面・画面（キーの部分は伏せる）
 2. 手順3で `>>` や赤エラーが出たかどうか
 
+## 改善案：コードの何が悪いか（手順書側への提案用）
+
+悪いのはコマンドの中身（パラメータ）ではなく、**渡し方**です。
+
+- 複数行に分かれたコマンドをそのまま貼ると、PowerShellでは1行目しか実行されない作りになっている
+- 実行結果（終了コード）を確認する仕組みがなく、失敗しても「完了」と誤認しやすい
+- 「2〜3分待つ」とあるだけで、成功したかどうかをその場で判定できない
+
+複数行でも壊れない形にするなら、パラメータを配列にまとめる書き方が安全です（括弧が閉じるまでPowerShellが続きとして扱うため、途中で実行されません）。あわせて、終わるまで待ち、失敗したら止まる形にします。
+
+```powershell
+$installArgs = @(
+  '/i', 'ElementsAgentOfflineInstaller.msi',
+  '/qn',
+  'VOUCHER=<キー>',
+  'PROFILE_ID=<手順書の値>',
+  'PROXY_SERVER=<手順書の値>',
+  'DISABLE_DEFENDER=1',
+  'LANGUAGE=ja'
+)
+$p = Start-Process msiexec.exe -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+if ($p.ExitCode -ne 0) { throw "インストールに失敗しました。ExitCode=$($p.ExitCode)" }
+Write-Host 'インストール完了。2〜3分待ってから確認手順へ。'
+```
+
+※これは手順書側への改善提案用です。本番作業では、承認されるまでは指定されたコマンドを1行にして使います。
+
 ## 出典
 
 - WithSecure公式サポート（Endpoint Protection）：未承認時の確認先、管理画面での端末確認
